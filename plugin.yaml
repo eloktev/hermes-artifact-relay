@@ -1,0 +1,26 @@
+name: artifact-relay
+version: 1.0.0
+manifest_version: 1
+api_version: 1
+description: Publish and read private Markdown or HTML artifacts.
+author: Egor Loktev and Hermes Agent
+license: MIT
+homepage: https://github.com/eloktev/hermes-artifact-relay
+platforms: [linux, macos, windows]
+tags: [artifacts, markdown, html, publishing]
+provides_tools:
+  - artifact_read
+  - artifact_publish
+requires_env:
+  - ARTIFACT_RELAY_API_TOKEN
+config_schema:
+  base_url:
+    type: str
+    default: ""
+    description: Absolute HTTP(S) origin of the Artifact Relay service
+    required: true
+  include_provenance:
+    type: bool
+    default: false
+    description: Send session, chat, topic, and task metadata with published artifacts
+    required: false
