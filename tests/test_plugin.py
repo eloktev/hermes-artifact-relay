@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sqlite3
@@ -35,6 +36,7 @@ class Context:
         self.include_provenance = include_provenance
         self.tools: list[dict] = []
         self.skills: list[tuple] = []
+        self.cli_commands: list[dict] = []
 
     def get_config(self, key: str, default=None):
         if key == "base_url":
@@ -48,6 +50,9 @@ class Context:
 
     def register_skill(self, *args, **kwargs):
         self.skills.append((args, kwargs))
+
+    def register_cli_command(self, **kwargs):
+        self.cli_commands.append(kwargs)
 
 
 def test_register_uses_plugin_config_and_exposes_exactly_two_tools(monkeypatch):
@@ -77,6 +82,65 @@ def test_register_bundles_namespaced_skill():
     args, _kwargs = context.skills[0]
     assert args[0] == "artifact-publishing"
     assert args[1] == ROOT / "skills" / "artifact-publishing" / "SKILL.md"
+
+
+def test_register_exposes_artifact_relay_operator_cli():
+    module = load_plugin()
+    context = Context("")
+    module.register(context)
+    assert len(context.cli_commands) == 1
+    command = context.cli_commands[0]
+    assert command["name"] == "artifact-relay"
+    assert callable(command["setup_fn"])
+    assert callable(command["handler_fn"])
+
+
+def test_operator_cli_has_setup_and_safe_status_subcommands():
+    module = load_plugin()
+    parser = argparse.ArgumentParser()
+    module._setup_cli(parser)
+
+    setup = parser.parse_args(
+        ["setup", "--control-plane", "http://127.0.0.1:9999", "--timeout", "12"]
+    )
+    assert setup.artifact_relay_action == "setup"
+    assert setup.control_plane == "http://127.0.0.1:9999"
+    assert setup.timeout == 12
+    status = parser.parse_args(["status"])
+    assert status.artifact_relay_action == "status"
+
+
+def test_status_reports_readiness_without_printing_secret(monkeypatch, capsys):
+    module = load_plugin()
+    module._base_url = "https://relay.example"
+    monkeypatch.setenv("ARTIFACT_RELAY_API_TOKEN", "must-not-appear")
+
+    result = module._cli_command(argparse.Namespace(artifact_relay_action="status"))
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "Service URL: configured" in output
+    assert "API token: configured" in output
+    assert "must-not-appear" not in output
+
+
+def test_setup_dispatches_options_and_redacts_failures(monkeypatch, capsys):
+    module = load_plugin()
+    calls = []
+
+    def fail(**kwargs):
+        calls.append(kwargs)
+        raise module.SetupError("authorization timed out")
+
+    monkeypatch.setattr(module, "hosted_setup", fail)
+    args = argparse.Namespace(
+        artifact_relay_action="setup",
+        control_plane="http://127.0.0.1:9999",
+        timeout=12,
+    )
+    assert module._cli_command(args) == 1
+    assert calls == [{"control_plane": "http://127.0.0.1:9999", "timeout": 12}]
+    assert capsys.readouterr().err.strip() == "Artifact Relay setup failed: authorization timed out"
 
 
 def test_missing_token_makes_tools_unavailable(monkeypatch):

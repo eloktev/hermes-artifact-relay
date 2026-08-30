@@ -197,16 +197,16 @@ class ArtifactClient:
             raise ValueError("expected an artifact URL shaped like /a/<id>")
         return match.group(1)
 
-    def _request(self, request: urllib.request.Request) -> dict[str, Any]:
+    def _request(self, request: urllib.request.Request, *, timeout: float = 90) -> dict[str, Any]:
         request.add_header("Authorization", f"Bearer {self._token_provider()}")
         request.add_header("Accept", "application/json")
         request.add_header("User-Agent", "Hermes-Artifact-Relay/1.0")
         try:
-            with self._opener.open(request, timeout=90) as response:
+            with self._opener.open(request, timeout=timeout) as response:
                 result = json.load(response)
         except urllib.error.HTTPError as exc:
             raise ArtifactError(f"Artifact Relay returned HTTP {exc.code}") from exc
-        except urllib.error.URLError as exc:
+        except (TimeoutError, urllib.error.URLError) as exc:
             raise ArtifactError("Artifact Relay is unreachable") from exc
         if not isinstance(result, dict):
             raise ArtifactError("Artifact Relay returned an unexpected response")
@@ -230,6 +230,7 @@ class ArtifactClient:
         fmt: str = "markdown",
         expires_days: int = 30,
         provenance: Mapping[str, str] | None = None,
+        timeout: float = 90,
     ) -> dict[str, Any]:
         if fmt not in {"markdown", "html"}:
             raise ValueError("format must be markdown or html")
@@ -256,7 +257,8 @@ class ArtifactClient:
                 data=body,
                 method="POST",
                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-            )
+            ),
+            timeout=timeout,
         )
         viewer_url = result.get("url")
         if not isinstance(viewer_url, str):

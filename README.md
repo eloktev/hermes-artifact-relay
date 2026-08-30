@@ -6,7 +6,7 @@ A standalone, standard-library-only Hermes Agent plugin that publishes private M
 
 - Two gated native tools: `artifact_publish` and `artifact_read`
 - Same-origin enforcement for viewer URL reads
-- Cross-platform token configuration
+- Hosted device authorization with credential-safe local storage
 - Configurable service origin through Hermes plugin settings
 - Best-effort Hermes session provenance with graceful fallback
 - Bundled generic long-result publishing skill
@@ -42,9 +42,30 @@ hermes plugins install eloktev/hermes-artifact-relay \
   --ref <full-40-character-commit-sha> --no-enable
 ```
 
-Hermes prompts for `ARTIFACT_RELAY_API_TOKEN` during installation and stores the secret in
-the active profile's private `.env`; this setup path is the same on Linux, macOS, and Windows.
-You may skip the prompt and provide it later.
+Installation does not require a token or service URL. Enable the plugin, then connect to the
+hosted control plane (`https://relay.lok-labs.com`) with its device authorization flow:
+
+```bash
+hermes plugins enable artifact-relay
+hermes artifact-relay setup
+```
+
+The command displays the verification link and user code, polls until authorization completes,
+stores the service URL in Hermes config, and stores the API token only in the active profile's
+private `.env` (new files use mode `0600`; existing permissions are preserved). It then publishes
+a small verification artifact through the new tenant and returns that non-secret URL. It never prints
+the token or places it in config, command arguments, or model-facing output. The setup
+command does not restart the gateway; start a new session (and restart any long-running Hermes
+process externally) to activate the tools.
+
+Check readiness without revealing credentials:
+
+```bash
+hermes artifact-relay status
+```
+
+`--control-plane` exists only for loopback/local testing; normal hosted setup should use the
+default. `--timeout` changes the authorization wait limit, for example `--timeout 900`.
 
 For a local clone during development:
 
@@ -54,7 +75,7 @@ hermes plugins doctor /absolute/path/to/hermes-artifact-relay --ci
 
 The manifest uses installer-compatible version 1 while retaining additive `api_version` and `config_schema` metadata understood by current Hermes runtimes.
 
-Configure the non-secret service URL with Hermes config:
+For a self-hosted/manual deployment, configure the non-secret service URL with Hermes config:
 
 ```bash
 hermes config set plugins.entries.artifact-relay.settings.base_url https://publisher.example
@@ -77,10 +98,9 @@ $env:ARTIFACT_RELAY_API_TOKEN = 'replace-with-token'
 hermes plugins enable artifact-relay
 ```
 
-The installation prompt is preferred for a gateway, desktop app, or other persistent launch:
-it writes the token to the active Hermes profile's secret `.env`, so every surface receives it
-on its next start. Restart long-running Hermes processes after changing the secret. Never put
-the token in `config.yaml` or plugin settings.
+Hosted setup is preferred for a gateway, desktop app, or other persistent launch. Manual tokens
+must still live only in the active Hermes profile's secret `.env`. Restart long-running Hermes
+processes after changing the secret. Never put the token in `config.yaml` or plugin settings.
 
 ### Optional macOS Keychain launch pattern
 

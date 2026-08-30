@@ -1,5 +1,5 @@
 name: artifact-relay
-version: 1.0.0
+version: 1.1.0
 manifest_version: 1
 api_version: 1
 description: Publish and read private Markdown or HTML artifacts.
@@ -11,14 +11,12 @@ tags: [artifacts, markdown, html, publishing]
 provides_tools:
   - artifact_read
   - artifact_publish
-requires_env:
-  - ARTIFACT_RELAY_API_TOKEN
 config_schema:
   base_url:
     type: str
     default: ""
     description: Absolute HTTP(S) origin of the Artifact Relay service
-    required: true
+    required: false
   include_provenance:
     type: bool
     default: false

@@ -5,7 +5,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_installable_manifest_declares_tools_config_and_secret():
+def test_installable_manifest_allows_setup_before_credentials_exist():
     manifest = yaml.safe_load((ROOT / "plugin.yaml").read_text())
     assert manifest["name"] == "artifact-relay"
     # Hermes' Git installer currently accepts v1 manifests; v2 metadata such as
@@ -16,9 +16,9 @@ def test_installable_manifest_declares_tools_config_and_secret():
     assert manifest["homepage"] == "https://github.com/eloktev/hermes-artifact-relay"
     assert manifest["platforms"] == ["linux", "macos", "windows"]
     assert manifest["provides_tools"] == ["artifact_read", "artifact_publish"]
-    assert manifest["requires_env"] == ["ARTIFACT_RELAY_API_TOKEN"]
+    assert "requires_env" not in manifest
     assert manifest["config_schema"]["base_url"]["type"] == "str"
-    assert manifest["config_schema"]["base_url"]["required"] is True
+    assert manifest["config_schema"]["base_url"]["required"] is False
 
 
 def test_repository_contains_open_source_operational_docs():
@@ -53,9 +53,11 @@ def test_skill_is_generic_cross_platform_and_automatic():
     assert "artifact_publish" in skill
     assert "artifact_read" in skill
     assert "Telegram" not in skill
+    assert "hermes artifact-relay setup" in skill
+    assert "new session" in skill
 
 
-def test_repository_has_no_private_or_fixed_origin_hardcoding():
+def test_repository_has_only_the_documented_hosted_control_plane():
     text = "\n".join(
         path.read_text(errors="replace")
         for path in ROOT.rglob("*")
@@ -64,5 +66,15 @@ def test_repository_has_no_private_or_fixed_origin_hardcoding():
         and ".venv" not in path.parts
         and "tests" not in path.parts
     )
-    for forbidden in ("lok-labs", "Egor's", "artifacts.lok", "eloktev@"):
+    assert 'DEFAULT_CONTROL_PLANE = "https://relay.lok-labs.com"' in text
+    for forbidden in ("Egor's", "artifacts.lok", "eloktev@"):
         assert forbidden not in text
+
+
+def test_readme_documents_safe_hosted_setup_and_status():
+    readme = (ROOT / "README.md").read_text()
+    assert "hermes artifact-relay setup" in readme
+    assert "hermes artifact-relay status" in readme
+    assert "https://relay.lok-labs.com" in readme
+    assert "does not restart" in readme
+    assert "never prints" in readme

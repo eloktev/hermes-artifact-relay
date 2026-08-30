@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,11 @@ except ImportError:  # pragma: no cover - direct source loading compatibility
         requirements_available,
         session_metadata,
     )
+
+try:
+    from .artifact_setup import DEFAULT_CONTROL_PLANE, SetupError, hosted_setup
+except ImportError:  # pragma: no cover - direct source loading compatibility
+    from artifact_setup import DEFAULT_CONTROL_PLANE, SetupError, hosted_setup
 
 _base_url = ""
 _include_provenance = False
@@ -62,6 +68,31 @@ def _publish(args: dict[str, Any], **kwargs: Any) -> str:
         return _result(True, artifact=artifact)
     except (ArtifactError, OSError, TypeError, ValueError) as exc:
         return _result(False, error=str(exc))
+
+
+def _setup_cli(parser: Any) -> None:
+    """Build the operator-facing command tree."""
+    commands = parser.add_subparsers(dest="artifact_relay_action", required=True)
+    setup = commands.add_parser("setup", help="Connect to the hosted Artifact Relay")
+    setup.add_argument("--control-plane", default=DEFAULT_CONTROL_PLANE)
+    setup.add_argument("--timeout", type=float, default=600)
+    commands.add_parser("status", help="Show credential-safe configuration status")
+
+
+def _cli_command(args: Any) -> int:
+    """Dispatch Artifact Relay operator commands without exposing credentials."""
+    if args.artifact_relay_action == "status":
+        print(f"Service URL: {'configured' if _base_url else 'not configured'}")
+        print(f"API token: {'configured' if requirements_available() else 'not configured'}")
+        ready = bool(_base_url) and requirements_available()
+        print(f"Tools: {'ready in a new session' if ready else 'unavailable'}")
+        return 0
+    try:
+        hosted_setup(control_plane=args.control_plane, timeout=args.timeout)
+    except SetupError as exc:
+        print(f"Artifact Relay setup failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def register(ctx: Any) -> None:
@@ -134,4 +165,11 @@ def register(ctx: Any) -> None:
         "artifact-publishing",
         skill,
         "Publish long results through the configured Artifact Relay.",
+    )
+    ctx.register_cli_command(
+        name="artifact-relay",
+        help="Set up and inspect the hosted Artifact Relay",
+        setup_fn=_setup_cli,
+        handler_fn=_cli_command,
+        description="Connect Hermes to the hosted Artifact Relay without exposing credentials.",
     )

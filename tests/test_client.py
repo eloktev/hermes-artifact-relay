@@ -152,12 +152,46 @@ def test_publish_sends_content_and_provenance(publisher_server):
         assert marker in FakePublisher.last_post
 
 
+def test_publish_forwards_explicit_http_timeout(monkeypatch):
+    observed: list[float] = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size=-1):
+            return json.dumps(
+                {
+                    "id": "A" * 32,
+                    "url": f"https://publisher.example/a/{'A' * 32}",
+                }
+            ).encode()
+
+    class Opener:
+        def open(self, _request, *, timeout):
+            observed.append(timeout)
+            return Response()
+
+    monkeypatch.setattr("artifact_plugin.urllib.request.build_opener", lambda *_args: Opener())
+    client = ArtifactClient("https://publisher.example", token_provider=lambda: "secret")
+
+    client.publish(title="Report", content="# Body\n", timeout=1.25)
+
+    assert observed == [1.25]
+
+
 def test_publish_rejects_foreign_viewer_url(monkeypatch):
     client = ArtifactClient("https://publisher.example", token_provider=lambda: "token")
     monkeypatch.setattr(
         client,
         "_request",
-        lambda _request: {"id": "A" * 32, "url": f"https://evil.example/a/{'A' * 32}"},
+        lambda _request, **_kwargs: {
+            "id": "A" * 32,
+            "url": f"https://evil.example/a/{'A' * 32}",
+        },
     )
     with pytest.raises(ArtifactError, match="unexpected artifact URL"):
         client.publish(title="Report", content="# Body\n")

@@ -1,7 +1,7 @@
 ---
 name: artifact-publishing
 description: Publish long results as private linked artifacts.
-version: 1.0.0
+version: 1.1.0
 author: Egor Loktev (eloktev), Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -27,6 +27,14 @@ Use `artifact_read` whenever the user supplies a link from the configured publis
 
 - The plugin is enabled and both `base_url` and `ARTIFACT_RELAY_API_TOKEN` are configured.
 - The publisher implements `POST /api/artifacts` and `GET /api/artifacts/<id>`.
+
+If the user asks to connect or configure the hosted relay, install/enable the plugin and run
+`hermes artifact-relay setup` through the terminal. Relay the verification URL and user code to
+the user, then let the command poll. Never request, read, repeat, or place the resulting token in
+chat or config. The command saves it to the active profile's secret environment and publishes a
+small verification artifact; return that non-secret URL. It does not restart a gateway; explain
+that a new session (and an external restart for a long-running Hermes process) is required. Use
+`hermes artifact-relay status` for a credential-safe readiness check.
 
 ## Procedure
 
