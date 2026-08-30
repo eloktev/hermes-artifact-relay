@@ -61,7 +61,7 @@ class DeviceFlow(BaseHTTPRequestHandler):
 def test_secret_writer_is_windows_compatible_and_replaces_export_assignment(tmp_path, monkeypatch):
     env_path = tmp_path / ".env"
     env_path.write_text("export ARTIFACT_RELAY_API_TOKEN=old-secret\nOTHER=keep\n")
-    monkeypatch.delattr(os, "fchmod")
+    monkeypatch.delattr(os, "fchmod", raising=False)
 
     _save_token("new-secret", tmp_path)
 
@@ -93,7 +93,8 @@ def test_secret_writer_preserves_existing_bom_and_permissions(tmp_path):
     assert value.startswith(b"\xef\xbb\xbf")
     assert b"old-secret" not in value
     assert value.count(b"ARTIFACT_RELAY_API_TOKEN=") == 1
-    assert stat.S_IMODE(env_path.stat().st_mode) == 0o640
+    if os.name != "nt":
+        assert stat.S_IMODE(env_path.stat().st_mode) == 0o640
 
 
 def test_secret_writer_verifies_supported_hermes_writer_for_active_profile(tmp_path, monkeypatch):
