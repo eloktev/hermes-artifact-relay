@@ -2,6 +2,10 @@
 
 A standalone, standard-library-only Hermes Agent plugin that publishes private Markdown or standalone HTML and reads original source through a bearer-authenticated Artifact Relay API.
 
+**Artifact Relay service:** [source, self-hosting, and Star on GitHub](https://github.com/eloktev/artifact-relay) · [project page](https://eloktev.github.io/artifact-relay/)
+
+Use the managed beta for an isolated hosted instance, or run the MIT-licensed service yourself. The plugin and service remain separate so you can inspect, deploy, and upgrade each independently.
+
 ## Features
 
 - Two gated native tools: `artifact_publish` and `artifact_read`
