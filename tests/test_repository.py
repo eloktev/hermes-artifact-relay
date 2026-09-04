@@ -34,9 +34,9 @@ def test_repository_contains_open_source_operational_docs():
     assert workflow.index("run: uv run pytest -q") < workflow.index(
         "repository: NousResearch/hermes-agent"
     )
-    assert (
-        "hermes plugins install eloktev/hermes-artifact-relay" in (ROOT / "README.md").read_text()
-    )
+    readme = (ROOT / "README.md").read_text()
+    assert "hermes plugins install eloktev/hermes-artifact-relay" in readme
+    assert "hermes://plugin/install?repo=eloktev/hermes-artifact-relay&enable=1" in readme
 
 
 def test_repository_is_git_distributed_not_a_partial_python_wheel():
